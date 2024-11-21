@@ -81,15 +81,6 @@ def create_adjacency_matrix(data, eps):
 
 
 def calculate_links(cluster1, cluster2, adjacency_matrix):
-    "Private function that is used by calculate_goodness.
-    "Returns number of link between two clusters."
-    "Link between objects (points) exists only if distance between them less than connectivity radius."
-    
-    "(in) cluster1         - cluster that is represented by list contains indexes of objects (points) from input data set."
-    "(in) cluster2         - cluster that is represented by list contains indexes of objects (points) from input data set."
-    "(in) adjacency_matrix - adjacency matrix that represents distances between objects (points) from the input data set."
-    
-    "Returns number of links between two clusters."
     
     number_links = 0;
     
