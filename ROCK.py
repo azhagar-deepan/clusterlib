@@ -46,14 +46,6 @@ def euclidean_distance(a,b):
 
 
 def rock(data, eps, number_clusters, threshold = 0.5):
-    "data            - input data - list of points where each point
-                        "is represented by list of coordinates."
-    "eps             - connectivity radius (similarity threshold), points are neighbors if distance between them is less than connectivity radius."
-    "number_clusters - defines number of clusters that should be allocated from the input data set."
-    "threshold       - value that defines degree of normalization that influences on choice of clusters for merging during processing."
-    
-    """ Returns list of allocated clusters,
-        each cluster contains indexes of objects in list of data."""
     
     degree_normalization = 1.0 + 2.0 * ( (1.0 - threshold) / (1.0 + threshold) );
     adjacency_matrix = create_adjacency_matrix(data, eps);
@@ -72,17 +64,7 @@ def rock(data, eps, number_clusters, threshold = 0.5):
 
 
 
-def create_adjacency_matrix(data, eps):
-    "Private function that is used by rock.
-    "Returns 2D matrix (list of lists) where each element
-    "described existence of link between points (marks them as neighbors)."
-    
-    "(in) data                - input data - list of points where each point is represented by list of coordinates."
-    "(in) eps                 - connectivity radius (similarity threshold),
-                                "points are neighbors if distance between them is less than connectivity radius."
-    
-    "Returns adjacency matrix for the input data set in line with connectivity radius."
-    
+def create_adjacency_matrix(data, eps):  
     size_data = len(data);
     
     adjacency_matrix = [ [ 0 for i in range(size_data) ] for j in range(size_data) ];
@@ -119,26 +101,7 @@ def calculate_links(cluster1, cluster2, adjacency_matrix):
   
 
 
-def find_pair_clusters(clusters, adjacency_matrix, degree_normalization):
-    " Private function that is used by rock.
-    " Returns pair of clusters that are best candidates for merging in line with goodness measure."
-    " The pair of clusters for which the above goodness measure is maximum
-    " is the best pair of clusters to be merged."
-    
-    "(in) clusters                 - list of cluster that have been allocated during processing
-                                    ", each cluster is represented by list of
-                                    "indexes of points from the input data set."
-    "(in) adjacency_matrix         - adjacency matrix that
-                                    "represents distances between objects (points)
-                                    "from the input data set."
-    "(in) degree_normalization     - degree of normalization that is used by
-                                    "goodness measurement for obtaining most suitable clusters
-                                    "for merging."
-    
-    "Returns list that contains two indexes of clusters (from list 'clusters')
-    "that should be merged on this step. It can be equals to [-1, -1] when number of links between"
-    "all clusters doesn't exist."
-    
+def find_pair_clusters(clusters, adjacency_matrix, degree_normalization):    
     maximum_goodness = 0.0;
     cluster_indexes = [-1, -1];
     
@@ -154,16 +117,7 @@ def find_pair_clusters(clusters, adjacency_matrix, degree_normalization):
 
 
 def calculate_goodness(cluster1, cluster2, adjacency_matrix, degree_normalization):
-    "Private function that is used by find_pair_clusters. Calculates coefficient 'goodness measurement' between two clusters."
-    "The coefficient defines level of suitability of clusters for merging."
-    
-    "(in) cluster1                - cluster that is represented by list contains indexes of objects (points) from input data set."
-    "(in) cluster2                - cluster that is represented by list contains indexes of objects (points) from input data set."
-    "(in) adjacency_matrix        - adjacency matrix that represents distances between objects (points) from the input data set."
-    "(in) degree_normalization    - degree of normalization that is used by goodness measurement for obtaining most suitable clusters for merging."
-    
-    "Returns goodness measure between two clusters."
-    
+
     number_links = calculate_links(cluster1, cluster2, adjacency_matrix);
     devider = (len(cluster1) + len(cluster2)) ** degree_normalization - len(cluster1) ** degree_normalization - len(cluster2) ** degree_normalization;
     
