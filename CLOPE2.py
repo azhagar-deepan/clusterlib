@@ -120,4 +120,4 @@ def Purity(real, pred):
     return 1.0 * purity_val / len(real)
 
 
-labels, clusters = CLOPE(df, k=2, r=0.9, real_label="OVERALL_DIAGNOSIS")
+
