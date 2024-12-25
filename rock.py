@@ -2,95 +2,111 @@ import pandas as pd
 import numpy as np
 import heapq
 
-def jaccard_similarity(point1, point2):
-    """Calculate the Jaccard similarity between two categorical points."""
-    set1 = set(point1)
-    set2 = set(point2)
-    intersection = len(set1.intersection(set2))
-    union = len(set1.union(set2))
-    return intersection / union if union != 0 else 0
+def ROCK(df, sample_size=30, k=2, threshold=0.2, representativeness_fraction=0.5, min_cluster_size_percent=0.1):
+    """ROCK Clustering Algorithm with one consolidated function."""
+    
+    def jaccard_similarity(point1, point2):
+        """Calculate the Jaccard similarity between two categorical points."""
+        set1 = set(point1)
+        set2 = set(point2)
+        intersection = len(set1.intersection(set2))
+        union = len(set1.union(set2))
+        return intersection / union if union != 0 else 0
 
-def compute_adjacency_matrix(S, threshold):
-    """Compute the adjacency matrix based on the similarity threshold."""
-    n = S.shape[0]
-    adjacency_matrix = np.zeros((n, n))
+    def compute_adjacency_matrix(S, threshold):
+        """Compute the adjacency matrix based on the similarity threshold."""
+        n = S.shape[0]
+        adjacency_matrix = np.zeros((n, n))
 
-    for i in range(n):
-        for j in range(n):
-            if i != j:
-                similarity = jaccard_similarity(S.iloc[i], S.iloc[j])
-                adjacency_matrix[i, j] = 1 if similarity > threshold else 0
+        for i in range(n):
+            for j in range(n):
+                if i != j:
+                    similarity = jaccard_similarity(S.iloc[i], S.iloc[j])
+                    adjacency_matrix[i, j] = 1 if similarity > threshold else 0
 
-    return adjacency_matrix
+        return adjacency_matrix
 
-def calculate_links(S, threshold):
-    """Calculate the links between pairs of points using adjacency matrix multiplication."""
-    adjacency_matrix = compute_adjacency_matrix(S, threshold)
-    links_matrix = np.dot(adjacency_matrix, adjacency_matrix)  # Multiply A with itself
-    return links_matrix
+    def calculate_links(S, threshold):
+        """Calculate the links between pairs of points using adjacency matrix multiplication."""
+        adjacency_matrix = compute_adjacency_matrix(S, threshold)
+        links_matrix = np.dot(adjacency_matrix, adjacency_matrix)  # Multiply A with itself
+        return links_matrix
 
-def calculate_goodness_measure(Ci, Cj, links_matrix, threshold):
-    """Calculate the goodness measure between two clusters Ci and Cj."""
-    ni = len(Ci)  # Size of cluster Ci
-    nj = len(Cj)  # Size of cluster Cj
-    link_Ci_Cj = sum(links_matrix[i, j] for i in Ci for j in Cj)  # Cross links
-    z = 1 + 2 * (1 - threshold / (1 + threshold))
-    goodness = link_Ci_Cj / ((ni + nj) ** z - ni ** z - nj ** z)
-    return goodness
+    def calculate_goodness_measure(Ci, Cj, links_matrix, threshold):
+        """Calculate the goodness measure between two clusters Ci and Cj."""
+        ni = len(Ci)  # Size of cluster Ci
+        nj = len(Cj)  # Size of cluster Cj
+        link_Ci_Cj = sum(links_matrix[i, j] for i in Ci for j in Cj)  # Cross links
+        z = 1 + 2 * (1 - threshold / (1 + threshold))
+        goodness = link_Ci_Cj / ((ni + nj) ** z - ni ** z - nj ** z)
+        return goodness
 
-def label_remaining_points(df, sampled_points, clusters, threshold):
-    """Label all points in the dataset based on clusters formed from sampled points."""
-    # Extract representative points (L_i) from each cluster
-    representative_points = {}
-    for cluster_id, points in clusters.items():
-        representative_points[cluster_id] = sampled_points.iloc[points]
+    def label_remaining_points(df, sampled_points, clusters, threshold, representativeness_fraction, min_cluster_size_percent):
+        """Label all points in the dataset based on clusters formed from sampled points."""
+        # Extract representative points (L_i) from each cluster
+        representative_points = {}
+        total_size = len(df)
 
-    # Initialize cluster assignments for all points
-    cluster_labels = [-1] * len(df)  # -1 indicates unclustered initially
+        for cluster_id, points in clusters.items():
+            cluster_size = len(points)
+            if cluster_size / total_size < min_cluster_size_percent:
+                # Use all points in the cluster as representatives
+                representatives = sampled_points.iloc[points]
+            else:
+                # Use a fraction of points in the cluster as representatives
+                num_representatives = max(1, int(cluster_size * representativeness_fraction))  # Ensure at least one representative
+                representatives = sampled_points.iloc[points].sample(n=num_representatives, random_state=42)
+            
+            representative_points[cluster_id] = representatives
 
-    for idx, point in df.iterrows():
-        max_similarity = -1
-        best_cluster = -1
+        # Initialize cluster assignments for all points
+        cluster_labels = [-1] * len(df)  # -1 indicates unclustered initially
 
-        # Compare the current point to representatives of each cluster
-        for cluster_id, representatives in representative_points.items():
-            similarities = [
-                jaccard_similarity(point, representative) for _, representative in representatives.iterrows()
-            ]
-            normalized_similarity = sum(similarities) / (len(representatives) + 1) ** ((1 - threshold) / (1 + threshold))
+        for idx, point in df.iterrows():
+            max_similarity = -1
+            best_cluster = -1
 
-            if normalized_similarity > max_similarity:
-                max_similarity = normalized_similarity
-                best_cluster = cluster_id
+            # Compare the current point to representatives of each cluster
+            for cluster_id, representatives in representative_points.items():
+                similarities = [
+                    jaccard_similarity(point, representative) for _, representative in representatives.iterrows()
+                ]
 
-        # Assign the point to the best cluster
-        cluster_labels[idx] = best_cluster
+                # Calculate the normalized similarity for current point
+                if similarities:
+                    normalized_similarity = sum(similarities) / len(representatives)
+                else:
+                    normalized_similarity = 0
 
-    return cluster_labels
+                if normalized_similarity > max_similarity:
+                    max_similarity = normalized_similarity
+                    best_cluster = cluster_id
 
-def ROCK(S, k, threshold, df):
-    """ROCK Clustering Algorithm with labeling."""
-    n = S.shape[0]  # Number of sampled points
-    print(f"Number of points in S: {n}")
-    print(f"Desired number of clusters: {k}")
+            # Assign the point to the best cluster
+            cluster_labels[idx] = best_cluster
 
+        return cluster_labels
+
+    # Sample points from the DataFrame to simulate the set S
+    sampled_points = df.sample(n=sample_size, random_state=42)
+    
     # Calculate links matrix
-    links_matrix = calculate_links(S, threshold)
+    links_matrix = calculate_links(sampled_points, threshold)
 
     # Initialize local heaps and global heap
-    local_heaps = {i: [] for i in range(n)}
-    clusters = {i: [i] for i in range(n)}  # Initial clusters
+    local_heaps = {i: [] for i in range(sampled_points.shape[0])}
+    clusters = {i: [i] for i in range(sampled_points.shape[0])}  # Initial clusters
 
     # Build local heaps
-    for i in range(n):
-        for j in range(n):
+    for i in range(sampled_points.shape[0]):
+        for j in range(sampled_points.shape[0]):
             if links_matrix[i, j] > 0 and i != j:
                 goodness = calculate_goodness_measure(clusters[i], clusters[j], links_matrix, threshold)
                 heapq.heappush(local_heaps[i], (-goodness, j))  # Store as negative for max-heap simulation
 
     # Build global heap
     global_heap = []
-    for i in range(n):
+    for i in range(sampled_points.shape[0]):
         if local_heaps[i]:
             max_goodness, max_index = local_heaps[i][0]
             heapq.heappush(global_heap, (max_goodness, i, max_index))  # Track max of each cluster
@@ -140,7 +156,10 @@ def ROCK(S, k, threshold, df):
     # Final clusters formed
     print("Final Clusters:", clusters)
 
-    # Label all points in the dataset based on clusters formed from sampled points
-    cluster_labels = label_remaining_points(df, S, clusters, threshold)
+    # Run final labeling on the entire dataset
+    print("\nRunning final labeling on the entire dataset...\n")
+    final_labels = label_remaining_points(df, sampled_points, clusters, threshold,
+                                           representativeness_fraction, min_cluster_size_percent)
 
-    return cluster_labels
+    # Add cluster labels to the DataFrame
+    df['Cluster'] = final_labels
