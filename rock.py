@@ -162,4 +162,4 @@ def ROCK(df, sample_size=30, k=2, threshold=0.2, representativeness_fraction=0.5
                                            representativeness_fraction, min_cluster_size_percent)
 
     # Add cluster labels to the DataFrame
-    df['Cluster'] = final_labels
+    return final_labels
