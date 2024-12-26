@@ -1,17 +1,23 @@
 import pandas as pd
 import numpy as np
 import heapq
+from collections import Counter
 
 def ROCK(df, sample_size=30, k=2, threshold=0.2, representativeness_fraction=0.5, min_cluster_size_percent=0.1):
     """ROCK Clustering Algorithm with one consolidated function."""
     
+
     def jaccard_similarity(point1, point2):
-        """Calculate the Jaccard similarity between two categorical points."""
-        set1 = set(point1)
-        set2 = set(point2)
-        intersection = len(set1.intersection(set2))
-        union = len(set1.union(set2))
+        """Calculate the Jaccard similarity between two categorical points, considering duplicates."""
+        counter1 = Counter(point1)
+        counter2 = Counter(point2)
+    
+        # Calculate intersection and union using counts
+        intersection = sum((counter1 & counter2).values())  # Element-wise min of counts
+        union = sum((counter1 | counter2).values())         # Element-wise max of counts
+    
         return intersection / union if union != 0 else 0
+
 
     def compute_adjacency_matrix(S, threshold):
         """Compute the adjacency matrix based on the similarity threshold."""
@@ -40,13 +46,13 @@ def ROCK(df, sample_size=30, k=2, threshold=0.2, representativeness_fraction=0.5
         z = 1 + 2 * (1 - threshold / (1 + threshold))
         goodness = link_Ci_Cj / ((ni + nj) ** z - ni ** z - nj ** z)
         return goodness
-
+    
     def label_remaining_points(df, sampled_points, clusters, threshold, representativeness_fraction, min_cluster_size_percent):
         """Label all points in the dataset based on clusters formed from sampled points."""
         # Extract representative points (L_i) from each cluster
         representative_points = {}
         total_size = len(df)
-
+    
         for cluster_id, points in clusters.items():
             cluster_size = len(points)
             if cluster_size / total_size < min_cluster_size_percent:
@@ -55,40 +61,36 @@ def ROCK(df, sample_size=30, k=2, threshold=0.2, representativeness_fraction=0.5
             else:
                 # Use a fraction of points in the cluster as representatives
                 num_representatives = max(1, int(cluster_size * representativeness_fraction))  # Ensure at least one representative
-                representatives = sampled_points.iloc[points].sample(n=num_representatives, random_state=42)
-            
+                representatives = sampled_points.iloc[points].sample(n=num_representatives)
+    
             representative_points[cluster_id] = representatives
-
+    
         # Initialize cluster assignments for all points
         cluster_labels = [-1] * len(df)  # -1 indicates unclustered initially
-
+    
         for idx, point in df.iterrows():
-            max_similarity = -1
+            max_score = -1
             best_cluster = -1
-
+    
             # Compare the current point to representatives of each cluster
             for cluster_id, representatives in representative_points.items():
-                similarities = [
-                    jaccard_similarity(point, representative) for _, representative in representatives.iterrows()
-                ]
-
-                # Calculate the normalized similarity for current point
-                if similarities:
-                    normalized_similarity = sum(similarities) / len(representatives)
-                else:
-                    normalized_similarity = 0
-
-                if normalized_similarity > max_similarity:
-                    max_similarity = normalized_similarity
+                # Calculate N_i: number of neighbors in representative set for the current point
+                N_i = sum(1 for representative in representatives.iterrows() if jaccard_similarity(point, representative[1]) > threshold)
+    
+                # Calculate the score using the provided formula
+                score = N_i / ((len(representatives) + 1) ** ((1 - threshold) / (1 + threshold)))
+    
+                # Check if this score is the highest we've seen
+                if score > max_score:
+                    max_score = score
                     best_cluster = cluster_id
-
+    
             # Assign the point to the best cluster
             cluster_labels[idx] = best_cluster
-
-        return cluster_labels
-
-    # Sample points from the DataFrame to simulate the set S
-    sampled_points = df.sample(n=sample_size, random_state=42)
+    
+        return cluster_labels    # Sample points from the DataFrame to simulate the set S
+        
+    sampled_points = df.sample(n=sample_size)
     
     # Calculate links matrix
     links_matrix = calculate_links(sampled_points, threshold)
