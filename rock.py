@@ -1,8 +1,10 @@
 import pandas as pd
 import numpy as np
 import heapq
-from collections import Counter
 import warnings
+import time
+import tqdm
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
@@ -80,26 +82,27 @@ def ROCK(df_original, sample_size=30, k=2, threshold=0.2, representativeness_fra
         # Initialize cluster assignments for all points
         cluster_labels = [-1] * len(df)  # -1 indicates unclustered initially
     
-        for idx, point in df.iterrows():
-            max_score = -1
-            best_cluster = -1
-    
-            # Compare the current point to representatives of each cluster
-            for cluster_id, representatives in representative_points.items():
-                # Calculate N_i: number of neighbors in representative set for the current point
-                N_i = sum(1 for representative in representatives.iterrows() if jaccard_similarity(point, representative[1]) > threshold)
-    
-                # Calculate the score using the provided formula
-                score = N_i / ((len(representatives) + 1) ** ((1 - threshold) / (1 + threshold)))
-    
-                # Check if this score is the highest we've seen
-                if score > max_score:
-                    max_score = score
-                    best_cluster = cluster_id
-    
-            # Assign the point to the best cluster
-            cluster_labels[idx] = best_cluster
-    
+        with tqdm.tqdm(total=df.shape[0], desc="Processing Elements") as pbar: 
+          for idx, point in df.iterrows():
+              max_score = -1
+              best_cluster = -1
+              pbar.update(1)
+              # Compare the current point to representatives of each cluster
+              for cluster_id, representatives in representative_points.items():
+                  # Calculate N_i: number of neighbors in representative set for the current point
+                  N_i = sum(1 for representative in representatives.iterrows() if jaccard_similarity(point, representative[1]) > threshold)
+      
+                  # Calculate the score using the provided formula
+                  score = N_i / ((len(representatives) + 1) ** ((1 - threshold) / (1 + threshold)))
+      
+                  # Check if this score is the highest we've seen
+                  if score > max_score:
+                      max_score = score
+                      best_cluster = cluster_id
+      
+              # Assign the point to the best cluster
+              cluster_labels[idx] = best_cluster
+            
         return cluster_labels    # Sample points from the DataFrame to simulate the set S
         
     sampled_points = df.sample(n=sample_size)
@@ -174,7 +177,7 @@ def ROCK(df_original, sample_size=30, k=2, threshold=0.2, representativeness_fra
                 heapq.heappush(global_heap, (max_goodness, i, max_index))
 
     # Final clusters formed
-    print("Final Clusters:", clusters)
+    #print("Final Clusters:", clusters)
 
     # Run final labeling on the entire dataset
     print("\nRunning final labeling on the entire dataset...\n")
